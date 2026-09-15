@@ -21,7 +21,7 @@ on:
       claude_toolchain_ref:
         description: Immutable claude-code-termux toolchain commit
         required: true
-        default: 3ca1c0509be19cd8ce9fff06dbee9d1e0f3d2b4d
+        default: 5be001485733950cdb1b4db13028ee1c7a268101
         type: string
 
 permissions:
