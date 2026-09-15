@@ -173,7 +173,7 @@ jobs:
           PY
 
           bun install --frozen-lockfile
-          node --experimental-strip-types scripts/build.ts \
+          GITHUB_SHA="$(git rev-parse HEAD)" node --experimental-strip-types scripts/build.ts \
             --profile=ci-build \
             --os=linux \
             --arch=aarch64 \
