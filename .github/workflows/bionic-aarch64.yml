@@ -172,7 +172,7 @@ jobs:
           bun scripts/build.ts \
             --profile=android-release \
             --build-dir=build/bionic-aarch64 \
-            -j 4
+            -j4
 
       - name: Verify and package the bionic binary
         id: package
