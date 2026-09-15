@@ -182,19 +182,20 @@ jobs:
           readelf -h "$binary" | tee "${RUNNER_TEMP}/elf-header.txt"
           readelf -l "$binary" | tee "${RUNNER_TEMP}/elf-program-headers.txt"
           readelf -d "$binary" | tee "${RUNNER_TEMP}/elf-dynamic.txt"
+          readelf -S "$binary" > "${RUNNER_TEMP}/elf-sections.txt"
 
           grep -Eq 'Type:.*DYN' "${RUNNER_TEMP}/elf-header.txt"
           grep -Eq 'Machine:.*AArch64' "${RUNNER_TEMP}/elf-header.txt"
           grep -Fq '[Requesting program interpreter: /system/bin/linker64]' \
             "${RUNNER_TEMP}/elf-program-headers.txt"
-          readelf -S "$binary" | grep -Fq '.bun'
+          grep -Fq '.bun' "${RUNNER_TEMP}/elf-sections.txt"
           if grep -Eq 'libc\.so\.6|ld-linux-aarch64' "${RUNNER_TEMP}/elf-dynamic.txt"; then
             echo "::error::glibc dependency found in Android binary"
             exit 1
           fi
 
           strings "$binary" > "${RUNNER_TEMP}/bun-strings.txt"
-          revision="$(sed -n 's/^Bun v\(.*Android arm64\)$/\1/p;T;q' "${RUNNER_TEMP}/bun-strings.txt")"
+          revision="$(sed -n '/^Bun v.*Android arm64/{s/^Bun v//;p;q;}' "${RUNNER_TEMP}/bun-strings.txt")"
           test -n "$revision"
           short_sha="$(git rev-parse --short=10 HEAD)"
           package="bun-linux-aarch64-android-${short_sha}"
@@ -203,6 +204,7 @@ jobs:
           cp "${RUNNER_TEMP}/elf-header.txt" "dist/$package/"
           cp "${RUNNER_TEMP}/elf-program-headers.txt" "dist/$package/"
           cp "${RUNNER_TEMP}/elf-dynamic.txt" "dist/$package/"
+          cp "${RUNNER_TEMP}/elf-sections.txt" "dist/$package/"
           sha256sum "dist/$package/bun" > "dist/$package/SHA256SUMS"
           printf '%s\n' \
             "source_commit=$(git rev-parse HEAD)" \
@@ -210,7 +212,7 @@ jobs:
             "target=android-aarch64" \
             "android_api=$ANDROID_API_LEVEL" \
             "android_ndk=$ANDROID_NDK_VERSION" \
-            "llvm=$(clang-21 --version | head -n 1)" \
+            "llvm=$(clang-21 --version | sed -n '1p')" \
             "rust=$(rustc --version)" \
             > "dist/$package/BUILD-INFO.txt"
           (cd dist && zip -0 -r "$package.zip" "$package")
