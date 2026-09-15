@@ -205,7 +205,7 @@ jobs:
           cp "${RUNNER_TEMP}/elf-program-headers.txt" "dist/$package/"
           cp "${RUNNER_TEMP}/elf-dynamic.txt" "dist/$package/"
           cp "${RUNNER_TEMP}/elf-sections.txt" "dist/$package/"
-          sha256sum "dist/$package/bun" > "dist/$package/SHA256SUMS"
+          (cd "dist/$package" && sha256sum bun > SHA256SUMS)
           printf '%s\n' \
             "source_commit=$(git rev-parse HEAD)" \
             "bun_revision=$revision" \
@@ -216,7 +216,7 @@ jobs:
             "rust=$(rustc --version)" \
             > "dist/$package/BUILD-INFO.txt"
           (cd dist && zip -0 -r "$package.zip" "$package")
-          sha256sum "dist/$package.zip" > "dist/$package.zip.sha256"
+          (cd dist && sha256sum "$package.zip" > "$package.zip.sha256")
           echo "package=$package" >> "$GITHUB_OUTPUT"
 
       - name: Upload bionic aarch64 artifact
