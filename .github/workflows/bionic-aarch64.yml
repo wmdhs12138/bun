@@ -8,6 +8,21 @@ on:
         required: true
         default: 5fce36ebb613a1fca77192c577a2c0a6a132e953
         type: string
+      build_claude:
+        description: Build an ephemeral, personal-use direct-exec Claude Code artifact
+        required: true
+        default: false
+        type: boolean
+      claude_version:
+        description: Claude Code version to graft when build_claude is enabled
+        required: true
+        default: 2.1.272
+        type: string
+      claude_toolchain_ref:
+        description: Immutable claude-code-termux toolchain commit
+        required: true
+        default: 3ca1c0509be19cd8ce9fff06dbee9d1e0f3d2b4d
+        type: string
 
 permissions:
   contents: read
@@ -236,4 +251,62 @@ jobs:
             dist/${{ steps.package.outputs.package }}.zip.sha256
           compression-level: 0
           retention-days: 30
+          if-no-files-found: error
+
+      - name: Check out the Claude Code graft toolchain
+        if: ${{ inputs.build_claude }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: wmdhs12138/claude-code-termux
+          ref: ${{ inputs.claude_toolchain_ref }}
+          path: .claude-toolchain
+          persist-credentials: false
+
+      - name: Build direct-exec Claude Code ELF
+        if: ${{ inputs.build_claude }}
+        id: claude_package
+        env:
+          CLAUDE_VERSION: ${{ inputs.claude_version }}
+          BUN_PACKAGE: ${{ steps.package.outputs.package }}
+        run: |
+          toolchain="$GITHUB_WORKSPACE/.claude-toolchain"
+          python3 -m unittest discover -s "$toolchain/tests" -v
+
+          SKIP_RUN=1 REFRESH_BASE=1 \
+            BUN_URL="file://$GITHUB_WORKSPACE/dist/$BUN_PACKAGE.zip" \
+            bash "$toolchain/scripts/build.sh" "$CLAUDE_VERSION"
+
+          actual_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["claude"])' \
+            "$toolchain/dist/build-manifest.json")"
+          test "$actual_version" = "$CLAUDE_VERSION"
+
+          short_sha="$(git rev-parse --short=10 HEAD)"
+          package="claude-code-${CLAUDE_VERSION}-android-aarch64-${short_sha}"
+          mkdir -p "dist/$package"
+          cp "$toolchain/dist/claude" "dist/$package/claude"
+          cp "$toolchain/dist/build-manifest.json" "dist/$package/BUILD-MANIFEST.json"
+          chmod +x "dist/$package/claude"
+          (cd "dist/$package" && sha256sum claude > SHA256SUMS)
+          printf '%s\n' \
+            "claude=$CLAUDE_VERSION" \
+            "bun_source=$(git rev-parse HEAD)" \
+            "toolchain=${{ inputs.claude_toolchain_ref }}" \
+            "target=android-aarch64" \
+            "runtime_external_preload_required=false" \
+            "ci_runtime_test=skipped (requires Android/Bionic)" \
+            > "dist/$package/BUILD-INFO.txt"
+          (cd dist && zip -0 -r "$package.zip" "$package")
+          (cd dist && sha256sum "$package.zip" > "$package.zip.sha256")
+          echo "package=$package" >> "$GITHUB_OUTPUT"
+
+      - name: Upload ephemeral direct-exec Claude Code artifact
+        if: ${{ inputs.build_claude }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.claude_package.outputs.package }}
+          path: |
+            dist/${{ steps.claude_package.outputs.package }}.zip
+            dist/${{ steps.claude_package.outputs.package }}.zip.sha256
+          compression-level: 0
+          retention-days: 1
           if-no-files-found: error

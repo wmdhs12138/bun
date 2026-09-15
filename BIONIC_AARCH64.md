@@ -32,3 +32,18 @@ device before promoting an artifact.
 
 The workflow intentionally uploads only a workflow artifact and does not
 publish GitHub Releases automatically.
+
+## Direct-exec Claude Code artifact
+
+Enable the manual `build_claude` input to continue from the freshly compiled
+Bun ELF, extract and patch the selected Claude Code standalone graph, embed the
+Android compatibility prelude into its entry module, and graft it into Bun.
+The second artifact is a self-contained `claude` ELF: it does not need an
+external Bun executable, JavaScript preload, or `BUN_OPTIONS` to start.
+
+The Claude artifact is an opt-in, one-day Actions artifact for personal testing
+and is never attached to a GitHub Release. Claude Code is proprietary; do not
+redistribute the resulting binary. The hosted runner performs structural graph
+and ELF verification but cannot execute Android/Bionic binaries. Promote a new
+Bun or Claude revision only after running `./claude` and the TUI smoke test on
+an Android device.
