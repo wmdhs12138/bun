@@ -2,9 +2,12 @@ name: Build Bun for Android bionic aarch64
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "bionic-v*"
+    inputs:
+      source_ref:
+        description: Bun source tag, branch, or commit
+        required: true
+        default: 5fce36ebb613a1fca77192c577a2c0a6a132e953
+        type: string
 
 permissions:
   contents: read
@@ -35,6 +38,7 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
+          ref: ${{ inputs.source_ref }}
 
       - name: Reclaim runner disk space
         run: |
@@ -169,8 +173,12 @@ jobs:
           PY
 
           bun install --frozen-lockfile
-          bun scripts/build.ts \
-            --profile=android-release \
+          node --experimental-strip-types scripts/build.ts \
+            --profile=ci-build \
+            --os=linux \
+            --arch=aarch64 \
+            --abi=android \
+            --buildkite=off \
             --build-dir=build/bionic-aarch64 \
             -j4
 
